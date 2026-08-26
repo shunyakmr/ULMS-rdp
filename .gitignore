@@ -1,0 +1,22 @@
+# Local configuration — contains the internal server address
+config.env
+
+# Never commit credentials
+.rdp_pw
+.keyring_pw
+*.pw
+
+# Quarto build output
+/_site/
+/.quarto/
+*_files/
+*.html
+!docs/**/*.html
+
+# Editor / OS noise
+*~
+*.swp
+.DS_Store
+*:Zone.Identifier
+
+**/*.quarto_ipynb

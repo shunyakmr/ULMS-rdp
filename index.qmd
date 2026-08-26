@@ -1,0 +1,68 @@
+---
+title: "ULMS RDP Setup"
+subtitle: "Ubuntu / WSL2 → ULMS Windows Server, in about 10 minutes"
+---
+
+## What this guide gives you
+
+A single command — `rdp-work` — that opens a full-screen, HiDPI-aware remote
+desktop session on the ULMS Windows server, with your clipboard shared and a
+local folder mounted inside Windows for drag-and-drop file transfer. No password
+typed, no plain-text secrets in your dotfiles.
+
+::: {.callout-note appearance="simple"}
+This is a community write-up by and for ULMS users. It is not an official
+University IT document. Always follow your institution's IT and information
+security policies — in particular, never publish the server address, your
+credentials, or research data to a public repository.
+:::
+
+## The four moving parts
+
+| Component | What it does |
+|---|---|
+| **FreeRDP** (`xfreerdp`) | The RDP client. Handles dynamic resolution, clipboard, and drive redirection. |
+| **GNOME Keyring** (`secret-tool`) | Encrypts your Windows password at rest so it never appears in `~/.bashrc` or your shell history. |
+| **`~/rdp_share`** | A local folder that appears inside Windows as `\\tsclient\share`. |
+| **`rdp-work`** | A one-word wrapper that wires the three together. |
+
+## How the pieces fit together
+
+```{mermaid}
+flowchart LR
+    A["<b>rdp-work</b><br/>alias or script"] --> B["<b>secret-tool lookup</b><br/>reads encrypted password"]
+    B --> C[("GNOME Keyring<br/>encrypted store")]
+    A --> D["<b>xfreerdp</b><br/>RDP client"]
+    C -.password.-> D
+    D <==>|"RDP over VPN"| E["<b>ULMS Windows Server</b>"]
+    F[("~/rdp_share<br/>local folder")] <-->|drive redirection| D
+    E -.mounted as.- G["\\tsclient\share"]
+```
+
+## Read this in order
+
+1. [**Core Setup**](setup.qmd) — the five steps everybody needs. Do these first, in order.
+2. [**Tips & Hacks**](hacks.qmd) — optional quality-of-life shortcuts, including how to
+   stop the keyring prompting you on every launch. These trade some security for
+   convenience, so each one states exactly what you are giving up.
+3. [**Troubleshooting**](troubleshooting.qmd) — what to do when the handshake fails,
+   plus WSL2-specific gotchas.
+
+::: {.callout-important}
+## Before you start
+
+You need an active **VPN connection** to the university network if you are off
+campus, and a Windows account that is authorised for Remote Desktop on the
+target server. Neither of those is covered here — ask ULMS IT if you are unsure.
+:::
+
+## Conventions used in this guide
+
+Throughout, `<ULMS_SERVER_IP>` stands for the ULMS Windows server address and
+`<WINDOWS_USER>` for your Windows account name. Rather than editing those into
+every command by hand, the [Core Setup](setup.qmd) puts them in a single
+`config.env` file that the launcher reads.
+
+::: {.callout-tip appearance="simple"}
+Every code block on this site has a copy button in its top-right corner.
+:::
