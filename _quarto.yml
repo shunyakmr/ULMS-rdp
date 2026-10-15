@@ -4,34 +4,16 @@ project:
 
 website:
   title: "ULMS RDP Setup"
-  description: "Connect from Ubuntu (or WSL2) to the ULMS Windows server over RDP."
+  description: "Connect to the ULMS Windows server from Linux, macOS or Windows with one command."
   site-url: "https://shunyakmr.github.io/ULMS-rdp/"
   repo-url: "https://github.com/shunyakmr/ULMS-rdp"
   repo-actions: [edit, issue]
-  page-navigation: true
   navbar:
     background: primary
-    search: true
-    left:
-      - href: index.qmd
-        text: Overview
-      - href: setup.qmd
-        text: Core Setup
-      - href: hacks.qmd
-        text: Tips & Hacks
-      - href: troubleshooting.qmd
-        text: Troubleshooting
     right:
       - icon: github
         href: https://github.com/shunyakmr/ULMS-rdp
         aria-label: GitHub
-  sidebar:
-    style: docked
-    contents:
-      - index.qmd
-      - setup.qmd
-      - hacks.qmd
-      - troubleshooting.qmd
   page-footer:
     center: "Community guide — not an official ULMS/University IT document."
 
@@ -41,7 +23,7 @@ format:
       light: cosmo
       dark: darkly
     toc: true
-    toc-depth: 3
+    toc-depth: 2
     code-copy: true
     code-overflow: wrap
     code-block-bg: true

@@ -1,68 +1,340 @@
 ---
-title: "ULMS RDP Setup"
-subtitle: "Ubuntu / WSL2 → ULMS Windows Server, in about 10 minutes"
+title: "ULMS Remote Desktop in One Command"
+subtitle: "Connect to the ULMS Windows server by typing `rdp-work`"
+author:
+  - name: Shunya Kimura
+    affiliations:
+      - name: "SIBE Group — Lecturer in Analytics"
+date: 2026-10-15
+date-format: long
 ---
 
-## What this guide gives you
+## What you end up with
 
-A single command — `rdp-work` — that opens a full-screen, HiDPI-aware remote
-desktop session on the ULMS Windows server, with your clipboard shared and a
-local folder mounted inside Windows for drag-and-drop file transfer. No password
-typed, no plain-text secrets in your dotfiles.
+Once set up, connecting to the ULMS Windows server takes three steps:
 
-::: {.callout-note appearance="simple"}
-This is a community write-up by and for ULMS users. It is not an official
-University IT document. Always follow your institution's IT and information
-security policies — in particular, never publish the server address, your
-credentials, or research data to a public repository.
+1. Connect to the university **VPN** (only if you are off campus).
+2. Open a **terminal**.
+3. Type **`rdp-work`** and press Enter.
+
+You approve the login on **Duo Mobile** on your phone, the remote Windows
+desktop opens, and you are logged in, with no password to type. `rdp-work` is just a shortcut. It replaces opening Remote
+Desktop, typing in the server address, your username and your password. Your
+password is kept in your computer's encrypted password store (keyring /
+Keychain / Credential Manager), not in a plain-text file.
+
+You also get a shared clipboard (copy on one side, paste on the other) and a
+shared folder for moving files between your computer and the server.
+
+## Requirements
+
+- A **university Windows account** with Remote Desktop access to the ULMS
+  server (IT grants this, see Step 1).
+- The **IP address** of the ULMS Windows server (IT provides this, see Step 1).
+- The **university VPN** installed, for when you are off campus.
+- **Duo Mobile** on your phone, set up for your university account. You need
+  to approve a Duo prompt every time you log in.
+- A computer running **Linux, macOS or Windows**. The setup differs for each, so
+  Step 2 has separate instructions for each one.
+
+::: {.callout-warning}
+## Only tested on Linux
+
+I use Linux (Ubuntu), so the **Linux instructions are the only ones I have
+tested**. The macOS and Windows instructions follow the standard approach for
+each system but are **untested**. If something does not work, please
+[open an issue](https://github.com/shunyakmr/ULMS-rdp/issues) so I can fix the
+guide.
 :::
 
-## The four moving parts
+---
 
-| Component | What it does |
-|---|---|
-| **FreeRDP** (`xfreerdp`) | The RDP client. Handles dynamic resolution, clipboard, and drive redirection. |
-| **GNOME Keyring** (`secret-tool`) | Encrypts your Windows password at rest so it never appears in `~/.bashrc` or your shell history. |
-| **`~/rdp_share`** | A local folder that appears inside Windows as `\\tsclient\share`. |
-| **`rdp-work`** | A one-word wrapper that wires the three together. |
+## Step 1: Ask IT for access and the IP address {#step-1}
 
-## How the pieces fit together
+Before anything else, email the **ULMS IT team** and ask them to:
 
-```{mermaid}
-flowchart LR
-    A["<b>rdp-work</b><br/>alias or script"] --> B["<b>secret-tool lookup</b><br/>reads encrypted password"]
-    B --> C[("GNOME Keyring<br/>encrypted store")]
-    A --> D["<b>xfreerdp</b><br/>RDP client"]
-    C -.password.-> D
-    D <==>|"RDP over VPN"| E["<b>ULMS Windows Server</b>"]
-    F[("~/rdp_share<br/>local folder")] <-->|drive redirection| D
-    E -.mounted as.- G["\\tsclient\share"]
+1. **Grant your account Remote Desktop access** to the ULMS Windows server.
+2. **Send you the server's IP address.**
+
+Nothing below works without these two things. In the rest of this guide,
+replace:
+
+- `<ULMS_SERVER_IP>` with the IP address IT gave you
+- `<WINDOWS_USER>` with your Windows (university) username
+
+::: {.callout-important appearance="simple"}
+The server address is internal information. Do not post it publicly or commit
+it to a public repository.
+:::
+
+---
+
+## Step 2: Set up `rdp-work` {#step-2}
+
+Pick your operating system. You only need to do this once.
+
+::: {.panel-tabset}
+
+### Linux
+
+Tested on Ubuntu 24.04. Any Ubuntu/Debian-based distribution should work.
+
+**1. Download this repository and run the setup script.**
+
+```bash
+git clone https://github.com/shunyakmr/ULMS-rdp.git
+cd ULMS-rdp
+./scripts/bootstrap.sh
 ```
 
-## Read this in order
+The first run installs the Remote Desktop client (FreeRDP) and the keyring
+tools, creates the shared folder `~/rdp_share`, and creates a file called
+`config.env`.
 
-1. [**Core Setup**](setup.qmd) — the five steps everybody needs. Do these first, in order.
-2. [**Tips & Hacks**](hacks.qmd) — optional quality-of-life shortcuts, including how to
-   stop the keyring prompting you on every launch. These trade some security for
-   convenience, so each one states exactly what you are giving up.
-3. [**Troubleshooting**](troubleshooting.qmd) — what to do when the handshake fails,
-   plus WSL2-specific gotchas.
+**2. Put the server address and your username in `config.env`.**
 
-::: {.callout-important}
-## Before you start
+```bash
+nano config.env
+```
 
-You need an active **VPN connection** to the university network if you are off
-campus, and a Windows account that is authorised for Remote Desktop on the
-target server. Neither of those is covered here — ask ULMS IT if you are unsure.
+Change these two lines, then save (`Ctrl+O`, `Enter`, `Ctrl+X`):
+
+```bash
+RDP_HOST=<ULMS_SERVER_IP>
+RDP_USER=<WINDOWS_USER>
+```
+
+**3. Run the setup script again to store your password.**
+
+```bash
+./scripts/bootstrap.sh
+```
+
+It asks for your Windows password once (nothing appears as you type, which is
+normal) and saves it in the encrypted GNOME keyring.
+
+**4. Create the `rdp-work` shortcut.**
+
+```bash
+echo "alias rdp-work='$PWD/scripts/rdp-work.sh'" >> ~/.bashrc
+source ~/.bashrc
+```
+
+Done. Go to [Step 3](#step-3).
+
+::: {.callout-note collapse="true"}
+## Not on Ubuntu/Debian?
+
+The setup script uses `apt`. On Fedora, Arch and similar systems, first install
+`freerdp` and `libsecret` (which provides `secret-tool`) with your package
+manager. Then create `config.env` yourself
+(`cp config.env.example config.env`), fill it in, and store the password:
+
+```bash
+mkdir -p ~/rdp_share
+secret-tool store --label="ULMS RDP Password" rdp <ULMS_SERVER_IP>
+```
+
+Then do sub-step 4 above. If your FreeRDP command is called `xfreerdp3`, set
+`RDP_BIN=xfreerdp3` in `config.env`.
 :::
 
-## Conventions used in this guide
+::: {.callout-note collapse="true"}
+## Using Ubuntu under WSL2 on Windows?
 
-Throughout, `<ULMS_SERVER_IP>` stands for the ULMS Windows server address and
-`<WINDOWS_USER>` for your Windows account name. Rather than editing those into
-every command by hand, the [Core Setup](setup.qmd) puts them in a single
-`config.env` file that the launcher reads.
+WSL2 has no desktop login, so the keyring is not unlocked automatically and you
+may be asked for the keyring password on each launch. The simplest fix is to
+follow the **Windows** tab instead. If you want to stay in WSL2, you can unlock
+the keyring automatically when the shell starts, at the cost of keeping your
+keyring password in a file that only you can read:
 
-::: {.callout-tip appearance="simple"}
-Every code block on this site has a copy button in its top-right corner.
+```bash
+install -m 600 /dev/null ~/.keyring_pw
+printf '%s' 'your-keyring-password' > ~/.keyring_pw
+```
+
+Then add this to the end of `~/.bashrc`:
+
+```bash
+if grep -qi microsoft /proc/version; then
+  [ -z "$DBUS_SESSION_BUS_ADDRESS" ] && eval "$(dbus-launch --sh-syntax)"
+  pgrep -u "$USER" gnome-keyring-d >/dev/null 2>&1 ||
+    gnome-keyring-daemon --unlock --replace --daemonize < ~/.keyring_pw >/dev/null 2>&1
+fi
+```
 :::
+
+### macOS
+
+::: {.callout-warning appearance="simple"}
+Untested. Please report any problems.
+:::
+
+**1. Install the Remote Desktop client (FreeRDP)** using
+[Homebrew](https://brew.sh):
+
+```bash
+brew install freerdp
+```
+
+Check which FreeRDP command you got:
+
+```bash
+ls "$(brew --prefix)/bin" | grep -i freerdp
+```
+
+Use `sdl-freerdp` if it is listed. It opens a normal macOS window. If there is
+only `xfreerdp`, you also need XQuartz (`brew install --cask xquartz`, then log
+out and back in).
+
+**2. Store your password in the macOS Keychain.**
+
+```bash
+security add-generic-password -a "<WINDOWS_USER>" -s ulms-rdp -w
+```
+
+It asks for your Windows password (twice) and saves it encrypted in your
+Keychain.
+
+**3. Create the shared folder.**
+
+```bash
+mkdir -p ~/rdp_share
+```
+
+**4. Create the `rdp-work` shortcut.** Open your shell settings file:
+
+```bash
+nano ~/.zshrc
+```
+
+Add this line at the end, replacing the placeholders (and `sdl-freerdp` with
+`xfreerdp` if that is what you have):
+
+```bash
+alias rdp-work='sdl-freerdp /v:<ULMS_SERVER_IP> /u:<WINDOWS_USER> /p:"$(security find-generic-password -s ulms-rdp -w)" /dynamic-resolution +clipboard /cert:ignore /drive:share,$HOME/rdp_share'
+```
+
+Save (`Ctrl+O`, `Enter`, `Ctrl+X`), then reload it:
+
+```bash
+source ~/.zshrc
+```
+
+The first time you run `rdp-work`, macOS may ask whether to allow access to
+the Keychain. Click **Always Allow** so it does not ask again.
+
+Done. Go to [Step 3](#step-3).
+
+### Windows
+
+::: {.callout-warning appearance="simple"}
+Untested. Please report any problems.
+:::
+
+Windows already includes a Remote Desktop client (`mstsc`), so there is nothing
+to install. Use **PowerShell** for the commands below (Start menu → type
+*PowerShell*).
+
+**1. Store your password in Windows Credential Manager.**
+
+```powershell
+cmdkey /generic:TERMSRV/<ULMS_SERVER_IP> /user:<WINDOWS_USER> /pass
+```
+
+It asks for your Windows password and saves it encrypted. Remote Desktop uses
+it automatically for this server.
+
+**2. Turn on the shared folder and clipboard (one time).**
+
+1. Open **Remote Desktop Connection** (Start menu → type *Remote Desktop*).
+2. Click **Show Options** → **Local Resources** tab.
+3. Make sure **Clipboard** is ticked, then click **More…** and tick **Drives**
+   (or just the drive you want to share).
+4. Go back to the **General** tab and click **Save**. This makes these the
+   default settings.
+
+**3. Create the `rdp-work` shortcut** in your PowerShell profile:
+
+```powershell
+if (!(Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force }
+Add-Content $PROFILE 'function rdp-work { mstsc /v:<ULMS_SERVER_IP> }'
+. $PROFILE
+```
+
+If PowerShell says running scripts is disabled, allow your own profile to load
+and try again:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+The first time you connect, Windows may warn about the server's certificate.
+Tick **Don't ask me again for connections to this computer** and click
+**Yes**.
+
+Done. Go to [Step 3](#step-3).
+
+:::
+
+---
+
+## Step 3: Connect {#step-3}
+
+Every time you want to use the server:
+
+1. **Connect to the VPN** if you are off campus.
+2. **Open a terminal** (Terminal on Linux/macOS, PowerShell on Windows).
+3. Type:
+
+```bash
+rdp-work
+```
+
+4. **Approve the Duo Mobile prompt** on your phone.
+
+The Windows desktop opens, already logged in.
+
+### Moving files
+
+- **Linux / macOS:** anything you put in `~/rdp_share` appears inside Windows
+  under **File Explorer → This PC → share on tsclient** (or type
+  `\\tsclient\share` in the address bar), and the other way round.
+- **Windows:** your local drives appear under **File Explorer → This PC** inside
+  the remote session.
+
+### Disconnecting
+
+Closing the window disconnects you but leaves your programs running for next
+time. To sign out completely, use **Start → your account icon → Sign out**
+inside the remote Windows desktop.
+
+---
+
+## If it does not work
+
+**It hangs or says the connection timed out.**
+Check that the VPN is connected and that the IP address is correct. Also check
+your phone: the login waits until you approve the Duo Mobile prompt, and fails
+if you do not approve it in time.
+
+**It says the logon failed.**
+The stored username or password is wrong. Store it again (this overwrites the
+old one):
+
+- Linux: `secret-tool store --label="ULMS RDP Password" rdp <ULMS_SERVER_IP>`
+- macOS: `security add-generic-password -U -a "<WINDOWS_USER>" -s ulms-rdp -w`
+- Windows: `cmdkey /generic:TERMSRV/<ULMS_SERVER_IP> /user:<WINDOWS_USER> /pass`
+
+Some servers expect the username as `DOMAIN\username`. Ask IT if unsure.
+Repeated failed attempts can lock your account, so stop after two and check
+your password elsewhere first.
+
+**Linux asks for a keyring password every time.**
+Your keyring password differs from your Linux login password. Install
+Seahorse (`sudo apt install -y seahorse`), right-click **Login** →
+**Change Password**, and set it to your Linux login password. After that, it
+unlocks automatically when you log in.
+
+**Still stuck?** [Open an issue](https://github.com/shunyakmr/ULMS-rdp/issues).
+Remove the server address and your username from anything you paste.
