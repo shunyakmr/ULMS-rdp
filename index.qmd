@@ -309,6 +309,143 @@ Closing the window disconnects you but leaves your programs running for next
 time. To sign out completely, use **Start → your account icon → Sign out**
 inside the remote Windows desktop.
 
+Programs left running keep using the server's memory, which everyone shares.
+If you will not need them for a while, sign out instead (see
+[Sharing the server's memory](#memory)).
+
+---
+
+## Where to keep your files on the server {#files}
+
+The server has two drives you can save to:
+
+- **`M:`** is your private network home drive. Only you can see it.
+- **`D:`** is a data drive on the server itself, **shared by everyone** who logs
+  in to it.
+
+::: {.callout-warning}
+## `D:` is shared unless you lock your folder
+
+By default, anything you put on `D:` can be opened and copied by every other
+user of the server, and they may be able to change or delete it. Do not keep
+sensitive data there in an unlocked folder.
+
+It is also **not yet confirmed whether `D:` is backed up.** I am checking with
+IT. Until then, assume it is not, and keep a copy of anything important
+somewhere else (for example on `M:`).
+:::
+
+### Making a folder on `D:` private
+
+You can lock down any folder **you created** on `D:` so that only you (plus the
+server's administrators) can open it. Run these in **PowerShell inside the
+remote Windows desktop**.
+
+First, find your full account name. It looks like `DOMAIN\username`:
+
+```powershell
+whoami
+```
+
+Replace `<DOMAIN>\<WINDOWS_USER>` below with what it prints, and
+`D:\myname_secure` with your folder. Naming private folders `*_secure` makes it
+easy to tell them apart.
+
+**Make the folder private.** This removes the shared permissions and keeps
+access for you, the system and the administrators:
+
+```powershell
+icacls D:\myname_secure /inheritance:r /grant:r "<DOMAIN>\<WINDOWS_USER>:(OI)(CI)F" "NT AUTHORITY\SYSTEM:(OI)(CI)F" "BUILTIN\Administrators:(OI)(CI)F"
+```
+
+**Check who has access:**
+
+```powershell
+icacls D:\myname_secure
+```
+
+You should see only your account, `NT AUTHORITY\SYSTEM` and
+`BUILTIN\Administrators`. There should be no `Users` or `Everyone`.
+
+**Give a colleague access** (`M` lets them change and delete files, `RX` is
+read-only):
+
+```powershell
+icacls D:\myname_secure /grant "<DOMAIN>\<their_username>:(OI)(CI)M"
+```
+
+**Remove a colleague's access:**
+
+```powershell
+icacls D:\myname_secure /remove "<DOMAIN>\<their_username>"
+```
+
+::: {.callout-note collapse="true"}
+## Locking a folder that already has files in it
+
+It is safest to lock a new, empty folder and move your files into it. If you
+lock a folder that is already in use, check these first.
+
+**Does anyone else own files inside it?** If so, they will lose access to
+their own files. This lists every item you do not own (no output means none):
+
+```powershell
+Get-ChildItem D:\myname_secure -Recurse -Force | Get-Acl | Where-Object Owner -ne "<DOMAIN>\<WINDOWS_USER>" | Select-Object Path, Owner
+```
+
+**Do any subfolders have their own permissions?** A subfolder with inheritance
+turned off keeps its old permissions and is not locked along with the parent:
+
+```powershell
+Get-ChildItem D:\myname_secure -Recurse -Directory -Force | Where-Object { (Get-Acl $_.FullName).AreAccessRulesProtected } | Select-Object FullName
+```
+
+**After locking, confirm nothing inside is still open to everyone** (no output
+is what you want):
+
+```powershell
+icacls D:\myname_secure /T | Select-String "Users|Everyone"
+```
+
+**Renaming** a folder (for example, adding `_secure` to its name) breaks any
+scripts, shortcuts or project settings that point to the old path. Update them
+afterwards.
+:::
+
+---
+
+## Sharing the server's memory {#memory}
+
+Everyone logged in to the server shares the same memory (RAM). If one person
+uses most of it, everyone's programs slow down, and large jobs (yours or
+someone else's) can crash. Get into the habit of checking how much you are
+using, especially before and during anything heavy.
+
+### Checking with Task Manager
+
+Inside the remote Windows desktop, right-click the **taskbar** and choose
+**Task Manager** (or Start menu → type *Task Manager*). Click **More details**
+if you only see a short list.
+
+- **Performance → Memory** shows how much of the server's memory is in use
+  in total, by everyone.
+- **Processes** lists your programs. Click the **Memory** column header to put
+  the biggest ones at the top.
+
+### Good habits
+
+- **Check before you start something big.** If the server's memory is already
+  close to full, wait, or run a smaller test first.
+- **Keep an eye on long jobs.** If your program's memory keeps climbing, stop
+  it before it takes everything.
+- **Free memory when you are done with large data.** In R, remove big objects
+  with `rm()` and then run `gc()`. In Python or Jupyter, restart the kernel.
+  Closing the program frees everything.
+- **Close what you are not using**, such as idle R/RStudio sessions, Jupyter
+  kernels, and browsers with many tabs.
+- **Sign out when you are finished for the day** instead of just closing the
+  window. Disconnected sessions keep their programs, and their memory, running.
+
 ---
 
 ## If it does not work
